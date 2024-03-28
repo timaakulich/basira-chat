@@ -1,95 +1,74 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client"
+import {useState} from "react";
+import BackendService from "@/api/backend";
+
+
+interface Message {
+    id: number
+    text: string
+    type: string
+}
+
+const MIN_MESSAGE_FOR_SUGGESTIONS = 5
 
 export default function Home() {
-  return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [inputValue, setInputValue] = useState("");
+    const [messagesCount, setMessagesCount] = useState(0)
+
+    const backendClient = new BackendService();
+
+    const handleSendMessage = async () => {
+        if (!inputValue.trim()) return;
+        messages.push({id: Math.random() * 100000, text: inputValue, type: 'human'})
+        setMessagesCount(prevState => prevState + 1)
+        setMessages(messages);
+        try {
+            const response = await backendClient.createMessage(inputValue)
+            // @ts-ignore
+            const responseJson = JSON.stringify(response.data)
+            setMessages([...messages, {id: new Date().getTime(), text: responseJson, type: 'ai'}]);
+        } catch (e) {
+            setMessages([...messages, {
+                id: new Date().getTime(),
+                text: "Can not get response from backend",
+                type: 'ai'
+            }]);
+        }
+        setInputValue('');
+    };
+
+    const handleGetRecommendations = async () => {
+        try {
+            const response = await backendClient.createSuggestions()
+            // @ts-ignore
+            const responseJson = JSON.stringify(response.data)
+        } catch (e) {
+            setMessages([...messages, {
+                id: new Date().getTime(),
+                text: "Can not get recommendations from backend",
+                type: 'ai'
+            }]);
+        }
+    }
+
+    return <div className="App">
+        <div className="chat-container">
+            {messages.map((message) => (
+                <div key={message.id} className={`message message-${message.type}`}>
+                    {message.text}
+                </div>
+            ))}
+            {messagesCount >= MIN_MESSAGE_FOR_SUGGESTIONS ? <button className="recommendation-button" onClick={handleGetRecommendations}>Get my recommendations</button> : <></>}
+            <div className="input-container">
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyUp={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+                <button onClick={handleSendMessage}>Send</button>
+            </div>
         </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    </div>;
 }
